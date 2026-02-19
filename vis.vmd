@@ -1,0 +1,81 @@
+# Copyright (c) 2026 University of Groningen
+# Authors: Aster Kovacs, Bart Bruininks
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+
+# Config
+set gro_file "out.gro"
+set xtc_file "out.xtc"
+set data_path "data.npy"
+
+# Open molecule
+# Note: the ; list silences noise when loaded with vmd -e vis.vmd
+mol new $gro_file; list
+mol addfile $xtc_file waitfor all; list
+animate delete beg 0 end 0 skip 0 0
+
+# Loading and setting the data to "User"
+source loader.tcl
+set data [load_npy $data_path]; list
+set sel [atomselect top all]; list
+trajectory_set $sel user $data
+$sel delete
+
+# VMD representations - Assumes mol ID 0 and only 1 default repr.
+# based on:
+# https://github.com/marrink-lab/MDVoxelSegmentation/blob/development/src/mdvoxelsegmentation/templates/vmd_clusters_visualization.vmd
+
+# Hide default representation
+# args: molID repID on/off
+mol showrep 0 0 0
+
+# Create representations for each category, one per color ID
+for {set CLUSTERID 0} {$CLUSTERID <= 32} {incr CLUSTERID} {
+	mol color ColorID $CLUSTERID
+	mol representation VDW 1.000000 12.000000
+	mol selection user $CLUSTERID 
+	mol material AOChalky
+	# auto update selection each frame
+	# args: repID molID on/off
+	mol selupdate $CLUSTERID 0 1
+	mol addrep 0
+}
+
+# Adding all the groups above 32 to the group 32
+mol modselect 33 0 user > 32
+mol selupdate 33 0 1
+
+# Not showing the 0 cluster by default to reduce clutter
+# (category 0 thus can be used as the default "uninteresting" category)
+mol showrep 0 1 0
+
+# Adds a neat short function to hide selections 1 through 33
+proc hide {} {
+   for {set x 1} {$x <= 33} {incr x} {
+      mol showrep 0 $x 0
+   }
+}
+
+# ... And the reverse
+proc show {} {
+   for {set x 1} {$x <= 33} {incr x} {
+      mol showrep 0 $x 1
+   }
+}
