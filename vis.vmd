@@ -33,49 +33,30 @@ animate delete beg 0 end 0 skip 0 0
 
 # Loading and setting the data to "User"
 source loader.tcl
-set data [load_npy $data_path]; list
-set sel [atomselect top all]; list
-trajectory_set $sel user $data
-$sel delete
+load_into_user $data_path
 
-# VMD representations - Assumes mol ID 0 and only 1 default repr.
-# based on:
-# https://github.com/marrink-lab/MDVoxelSegmentation/blob/development/src/mdvoxelsegmentation/templates/vmd_clusters_visualization.vmd
+# Visualization details - VDW, hide cluster 0
+mol modstyle 0 0 VDW 2.0 12.0
+mol modselect 0 0 user > 0
 
-# Hide default representation
-# args: molID repID on/off
-mol showrep 0 0 0
+# Bonus: hotkeys to move inside the palette
+set minmax_i 0
 
-# Create representations for each category, one per color ID
-for {set CLUSTERID 0} {$CLUSTERID <= 32} {incr CLUSTERID} {
-	mol color ColorID $CLUSTERID
-	mol representation VDW 1.000000 12.000000
-	mol selection user $CLUSTERID 
-	mol material AOChalky
-	# auto update selection each frame
-	# args: repID molID on/off
-	mol selupdate $CLUSTERID 0 1
-	mol addrep 0
+proc inc_pos {} {
+	global minmax_i
+	incr minmax_i
+	if {$minmax_i > 0} {
+		set minmax_i 0
+	}
+	mol scaleminmax 0 0 $minmax_i [expr {$minmax_i+1023}]
 }
-
-# Adding all the groups above 32 to the group 32
-mol modselect 33 0 user > 32
-mol selupdate 33 0 1
-
-# Not showing the 0 cluster by default to reduce clutter
-# (category 0 thus can be used as the default "uninteresting" category)
-mol showrep 0 1 0
-
-# Adds a neat short function to hide selections 1 through 33
-proc hide {} {
-   for {set x 1} {$x <= 33} {incr x} {
-      mol showrep 0 $x 0
-   }
+proc dec_pos {} {
+	global minmax_i
+	set minmax_i [expr {$minmax_i-1}]
+	if {$minmax_i < -1022} {
+		set minmax_i -1022
+	}
+	mol scaleminmax 0 0 $minmax_i [expr {$minmax_i+1023}]
 }
-
-# ... And the reverse
-proc show {} {
-   for {set x 1} {$x <= 33} {incr x} {
-      mol showrep 0 $x 1
-   }
-}
+user add key \{ dec_pos
+user add key \} inc_pos

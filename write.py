@@ -14,6 +14,6 @@ data = np.zeros((n_frames, n_atoms), dtype=np.int8)
 for i, frame in enumerate(xyz):
     for j, atom in enumerate(frame):
         # dummy data based on the x coordinate of the atom
-        data[i, j] = atom[0] / 0.2
+        data[i, j] = atom[0] / 0.5
 
 np.save("data.npy", data)

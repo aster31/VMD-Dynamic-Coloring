@@ -135,3 +135,170 @@ proc trajectory_set { sel field data } {
 		$sel set $field [lindex $data $i]
 	}
 }
+
+proc hsl_to_rgb { hue saturation light } {
+	set C [expr {(1.-abs(2*$light-1.))*$saturation}]
+	set X [expr {$C*(1.-abs(fmod($hue/60., 2.)-1.))}]
+	set m [expr {$light-$C/2.}]
+	if {$hue < 60.} {
+		set sR $C
+		set sG $X
+		set sB 0.
+	} elseif {$hue < 120.} {
+		set sR $X
+		set sG $C
+		set sB 0.
+	} elseif {$hue < 180.} {
+		set sR 0.
+		set sG $C
+		set sB $X
+	} elseif {$hue < 240.} {
+		set sR 0.
+		set sG $X
+		set sB $C
+	} elseif {$hue < 300.} {
+		set sR $X
+		set sG 0.
+		set sB $C
+	} else {
+		set sR $C
+		set sG 0.
+		set sB $X
+	}
+	set R [expr {$sR+$m}]
+	set G [expr {$sG+$m}]
+	set B [expr {$sB+$m}]
+
+	return [list $R $G $B]	
+}
+
+proc get_or { dict key default } {
+	if {[dict exists $dict $key]} {
+		return [dict get $dict $key]
+	} else {
+		return $default
+	}
+}
+
+proc gen_ramp { kwargs } {
+
+	set valid_args {
+		n 1
+		hStart 1
+		hLen 1
+		hCycles 1
+		minSat 1
+		maxSat 1
+		minLight 1
+		maxLight 1
+		hMap 1
+		sMap 1
+		lMap 1
+		lCycles 1
+		lLen 1
+		sCycles 1
+		sLen 1
+	}
+
+	dict for {key val} $kwargs {
+		if {![dict exists $valid_args $key]} {
+			error "Invalid argument to gen_ramp: $key."
+		}
+	}
+
+	set n [get_or $kwargs n 8 ]
+	set hStart [get_or $kwargs hStart 0. ]
+	set sat_end [get_or $kwargs minSat 1. ]
+	set sat_start [get_or $kwargs maxSat 0. ]
+	set light_end [get_or $kwargs minLight 1. ]
+	set light_start [get_or $kwargs maxLight 0. ]
+	set hue_map [get_or $kwargs hMap {$x}]
+	set sat_map [get_or $kwargs sMap {$x}]
+	set light_map [get_or $kwargs lMap {$x}]
+
+
+	if {[dict exists $kwargs hCycles]} {
+		set h_len [expr {$n/[dict get $kwargs hCycles]}]
+	} elseif {[dict exists $kwargs hLen]} {
+		set h_len [dict get $kwargs hLen]
+	} else {
+		set h_len $n
+	}
+
+	
+	if {[dict exists $kwargs lCycles]} {
+		set l_len [expr {$n/[dict get $kwargs lCycles]}]
+	} elseif {[dict exists $kwargs lLen]} {
+		set l_len [dict get $kwargs lLen]
+	} else {
+		set l_len $n
+	}
+	if {[dict exists $kwargs sCycles]} {
+		set s_len [expr {$n/[dict get $kwargs sCycles]}]
+	} elseif {[dict exists $kwargs sLen]} {
+		set s_len [dict get $kwargs sLen]
+	} else {
+		set s_len $n
+	}
+
+	set rgb [list]
+
+	for {set i 0} {$i < $n} {incr i} {
+		# calc HSL from sampling
+		set x [expr {fmod($hStart+$i*360./$h_len, 360.)}]
+		set hue [expr $hue_map]
+		set x [expr {$sat_start+fmod($i, $s_len)*($sat_end-$sat_start)/($s_len-1)}]
+		set saturation [expr $sat_map]
+		set x [expr {$light_start+fmod($i, $l_len)*($light_end-$light_start)/($l_len-1)}]
+		set light [expr $light_map]
+
+		lappend rgb [hsl_to_rgb $hue $saturation $light]
+	}
+
+	return $rgb
+}
+
+proc vmd_set_colors { from to ramp } {
+	set n [expr {$to-$from}]
+	if {[llength $ramp] != $n} {
+		puts {$ramp length does not match $to-$from. $to is not inclusive! incorrect $n for ramp?}
+		return
+	}
+	for {set i 0} {$i < $n} {incr i} {
+		set colorID [expr {$i+$from}]
+		set rgb [lindex $ramp $i]
+		set R [lindex $rgb 0]
+		set G [lindex $rgb 1]
+		set B [lindex $rgb 2]
+		color change rgb $colorID $R $G $B
+	}
+}
+
+proc discrete_ramp {} {
+	set ramp [
+		gen_ramp {
+			hStart 348.7
+			hLen 2.73
+			minSat 0.9
+			maxSat 0.3
+			sLen 9.52
+			minLight 0.75
+			maxLight 0.35
+			lLen 6.44
+			n 1024
+		}
+	]
+	vmd_set_colors [colorinfo num] [expr {[colorinfo num]+1024}] $ramp
+}
+
+proc load_into_user { data_path { molID 0 } { repID 0 } } {
+	set data [load_npy $data_path]
+	set sel [atomselect $molID all]
+	trajectory_set $sel user $data
+	$sel delete
+	mol modcolor $repID $molID User
+	mol selupdate $repID $molID 1
+	mol colupdate $repID $molID 1
+	discrete_ramp
+	mol scaleminmax $repID $molID 0 1023
+}
