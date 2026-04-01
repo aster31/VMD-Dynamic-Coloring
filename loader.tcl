@@ -90,7 +90,7 @@ proc load_npy { path } {
 		error "Header contained no 'shape', is your .npy correct?"
 	}
 
-	set shape_start [expr [lindex $shape_loc 1] + 1]
+	set shape_start [expr {[lindex $shape_loc 1] + 1}]
 	if {[regexp -start $shape_start {\A[0-9]+[, ]*\)} $header dim]} {
 		regexp {[0-9]+} $dim dim
 		# 1D
@@ -104,9 +104,9 @@ proc load_npy { path } {
 		# 2D
 		regexp -indices {[0-9]+} $dims dim1_ind
 		set dim1 [string range $dims [lindex $dim1_ind 0] [lindex $dim1_ind 1]]
-		regexp -start [expr [lindex $dim1_ind 1] + 1] {[0-9]+} $dims dim2
+		regexp -start [expr {[lindex $dim1_ind 1] + 1}] {[0-9]+} $dims dim2
 
-		set chunk_len [expr $chunk_len * $dim2]
+		set chunk_len [expr {$chunk_len * $dim2}]
 		set result [list]
 
 		for {set i 0} {$i < $dim1} {incr i} {
@@ -141,33 +141,33 @@ proc hsl_to_rgb { hue saturation light } {
 	set X [expr {$C*(1.-abs(fmod($hue/60., 2.)-1.))}]
 	set m [expr {$light-$C/2.}]
 	if {$hue < 60.} {
-		set sR $C
-		set sG $X
-		set sB 0.
+		set R $C
+		set G $X
+		set B 0.
 	} elseif {$hue < 120.} {
-		set sR $X
-		set sG $C
-		set sB 0.
+		set R $X
+		set G $C
+		set B 0.
 	} elseif {$hue < 180.} {
-		set sR 0.
-		set sG $C
-		set sB $X
+		set R 0.
+		set G $C
+		set B $X
 	} elseif {$hue < 240.} {
-		set sR 0.
-		set sG $X
-		set sB $C
+		set R 0.
+		set G $X
+		set B $C
 	} elseif {$hue < 300.} {
-		set sR $X
-		set sG 0.
-		set sB $C
+		set R $X
+		set G 0.
+		set B $C
 	} else {
-		set sR $C
-		set sG 0.
-		set sB $X
+		set R $C
+		set G 0.
+		set B $X
 	}
-	set R [expr {$sR+$m}]
-	set G [expr {$sG+$m}]
-	set B [expr {$sB+$m}]
+	set R [expr {$R+$m}]
+	set G [expr {$G+$m}]
+	set B [expr {$B+$m}]
 
 	return [list $R $G $B]	
 }
